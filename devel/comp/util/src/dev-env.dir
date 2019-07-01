@@ -1,0 +1,13 @@
+admin
+include
+lib
+bin
+tmp
+test
+release
+repository
+devel
+devel/comp
+devel/env
+devel/make
+

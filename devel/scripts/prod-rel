@@ -1,0 +1,51 @@
+#!/bin/csh -f
+#
+# Project : mde
+#
+# Description :
+#
+# This script will create a production release of the latest quarantine
+# release of the system.
+#
+
+if ( -e ${adm}/release_info ) then
+	set RELEASE_NUMBER = `sed -n 's/%.*//p' ${adm}/release_info`
+else
+	echo A production release can only be made from a q.a. release.
+	exit 1
+endif
+
+set PROJECT_NAME = `basename $PROJECT_ROOT`
+
+echo Creating production release $RELEASE_NUMBER for $PROJECT_NAME 
+
+if ( ! -d ${r}/${PROJECT_OS_TYPE}/${RELEASE_NUMBER} ) then
+	mkdir ${r}/${PROJECT_OS_TYPE}/${RELEASE_NUMBER}
+endif
+
+# tar up all of the files.
+echo Creating sequential archive...
+cd ${qa}
+tar cf ${PROJECT_NAME}_${RELEASE_NUMBER}.tar bin lib include devel/scripts
+mv ${PROJECT_NAME}_${RELEASE_NUMBER}.tar ${r}/${PROJECT_OS_TYPE}/${RELEASE_NUMBER}/
+cp scripts/* ${r}/${PROJECT_OS_TYPE}/${RELEASE_NUMBER} >& /dev/null
+if ( $status == 1 ) then
+	echo WARNING : Could not find any installation scripts...
+endif
+
+echo -n "Do you wish to create a maintenance release [y/n] : "
+set answer = $<
+
+if ( $answer == "y" ) then
+	# Create a maintenance release
+	if ( -e /development/${PROJECT_NAME}_release ) then
+		echo ${PROJECT_NAME}_release already exists.
+		echo delete it and then execute CreateMaintenanceRelease 
+	else
+		CreateMaintenanceRelease ${PROJECT_ROOT}
+	endif
+endif
+
+echo Release procedure completed. 
+echo New release can be found in ${r}/${PROJECT_OS_TYPE}/${RELEASE_NUMBER}
+

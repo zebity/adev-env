@@ -1,0 +1,38 @@
+#!/bin/csh -f
+#
+# Project : mde
+#
+# Description :
+#
+# This script will build the complete system.
+#
+
+echo Building Complete System...
+
+if ( $#argv > 0 ) then
+	set parameter = $argv[1]
+else
+	set parameter = 
+endif
+
+if ( -f ${adm}/${PROJECT_OS_TYPE}_components ) then
+	# Use this list as the list of things to make.
+	set COMP = ${adm}/${PROJECT_OS_TYPE}_components
+else if ( -f ${adm}/components ) then
+	# They are using the standard file.
+	set COMP = ${adm}/components
+else
+	# Something went wrong..
+	echo The ${adm}/components file does not exist.
+	echo Do not know which components are part of this system build.
+	exit (1)
+endif
+
+foreach word ( `cat ${COMP}` )
+	echo Building ${word}...
+	cd ${pc}/${word}/src
+
+	$GMAKE $parameter
+end
+# The whole system has been built.
+

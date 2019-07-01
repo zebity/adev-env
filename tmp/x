@@ -1,0 +1,11 @@
+#!/bin/csh -f
+set verbose
+
+set RELEASE_NUMBER = `sed -n '1p' ${adm}/release_info`
+
+echo Previous release was tagged as : ${RELEASE_NUMBER}
+
+set NEW_RELEASE_NUMBER = $<
+
+echo $NEW_RELEASE_NUMBER
+

@@ -1,0 +1,44 @@
+#!/bin/csh -f
+
+# Project : mde
+#
+# Description :
+#
+# This script will place a file into configuration control on the remote site
+#
+
+set TEMP_FILE = /tmp/gks$$
+
+if ($#argv < 2) then
+	echo Usage : $0 pathname_of_file message
+	exit 1
+endif
+
+set FULL_PATHNAME = $argv[1]
+set LOG_MESSAGE = $argv[2]
+
+set PROJECT_NAME = `cut -f3 -d/ ${FULL_PATHNAME}`
+setenv CVSROOT /development/${PROJECT_NAME}/repository
+
+echo $FULL_PATHNAME
+echo $LOG_MESSAGE
+echo $PROJECT_NAME
+echo $CVSROOT
+
+cd `dirname ${FULL_PATHNAME}`
+
+if ( ! -e $FULL_PATHNAME ) then
+	# The file does not exist
+	echo Placing the file into the repository for the first time.
+	cvs add `basename $FULL_PATHNAME`
+	cvs commit -m $LOG_MESSAGE `basename $FULL_PATHNAME`
+else
+	# The file is not a new file, simply update it.
+	cvs commit -m $LOG_MESSAGE `basename $FULL_PATHNAME` > /development/${PROJECT_NAME}/admin/synchronisation_output_`date '+$m_%d_%y'`
+	if ( $status == 0 ) then
+		# Succeeded, therefore delete the transaction history file.
+		rm /development/${PROJECT_NAME}/admin/synchronisation_output_`date '+$m_%d_%y'`
+	endif
+
+endif
+

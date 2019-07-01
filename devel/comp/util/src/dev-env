@@ -1,0 +1,63 @@
+#!/bin/csh -f
+# -v
+#
+# File: dev-env
+#
+# Contents: Start a new development envionment shell.
+#
+# Programmer: George Siatos (Original implementation)
+#             John Hartley (Generic reinterpretation)
+#
+#
+
+if ( -f ~/dev-env.cfg) then
+	source ~/dev-env.cfg
+else if ( -f /usr/local/etc/dev-env.cfg) then
+	source /usr/local/etc/dev-env.cfg
+else
+	echo "Require ~/dev-env.cfg or /usr/local/etc/dev-env.cfg file"
+	exit(1)
+endif
+
+if ( ${#argv} != 1 ) then
+	# Not enough parameters
+	echo Usage : `basename $0` \'project name\'
+else
+	if ( ! $?PROJECT_OS_TYPE ) then
+		echo "The PROJECT_OS_TYPE envionment variable must be set"
+		exit
+	endif
+
+	set PROJECT_NAME = $argv[1]
+
+	setenv PROJECT_ROOT ${DEVENV_ROOT}/${PROJECT_NAME}
+
+	if ( ! -d ${PROJECT_ROOT} ) then
+		# Project does not exist in the default location.
+		echo Project $PROJECT_NAME does not exist or is not \
+		     in the default location
+	else
+		# Everything is O.K.
+		if ( -f ${PROJECT_ROOT}/${DEVENV_ENVDIR}/proj-cshrc ) then
+			source ${PROJECT_ROOT}/${DEVENV_ENVDIR}/proj-cshrc
+		else if ( -f proj-cshrc ) then
+			source proj-cshrc
+		else if ( -f ${DEVENV_BIN}/proj-cshrc ) then
+			source ${DEVENV_BIN}/proj-cshrc
+		else
+			echo "Unable to source the proj-cshrc file"
+			exit
+		endif
+		if ( ${HAVE_CVS} == "yes" ) then
+			if ( ! -d ${CVSROOT}/CVSROOT ) then
+				# The repository has not been set up
+				echo -n Setting up source code repository for the first time...
+				cvsinit > /dev/null
+				echo done.
+			endif
+		endif
+		echo "Entering $PROJECT_NAME for OS: $PROJECT_OS_TYPE..."
+		$SHELL
+		echo "Exiting $PROJECT_NAME project..."
+	endif
+endif

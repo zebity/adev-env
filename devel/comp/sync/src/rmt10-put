@@ -1,0 +1,53 @@
+#!/bin/csh -f
+
+# Project : mde
+#
+# Description :
+#
+# This will execute some stuff on mocom10, and connect to $HOSTNAME.
+#
+
+set EXIT_STATUS = 1
+if ( $#argv < 2 ) then
+	echo Usage : $0 full_pathname component_name filename log_message user\
+	localhost remote_host project_name
+else
+	set FULL_PATHNAME = $argv[1]
+	set COMPONENT_NAME = $argv[2]
+	set FILENAME = $argv[3]
+	set LOG_MESSAGE = $argv[4]
+	set USER = $argv[5]
+	set LOCALHOST = $argv[6]
+	set REMOTE_HOST = $argv[7]
+	set PROJECT_NAME = $argv[8]
+
+echo FULL_PATHNAME = $FULL_PATHNAME
+echo COMPONENT_NAME = $COMPONENT_NAME
+echo FILENAME = $FILENAME
+echo LOG_MESSAGE = $LOG_MESSAGE
+echo USER = $USER
+echo O_HOST = $O_HOST
+echo R_HOST = $R_HOST
+echo PROJECT_NAME = $PROJECT_NAME
+
+	echo Connecting to $HOST, this may take a while...
+	/development/mde/release/version_1.0/ppp-connect $REMOTE_HOST
+
+	if ( $status == 0 ) then
+		# Managed to connect.
+		rcp /development/mde/release/version_1.0/remote_host_put_script ${HOST}:/tmp
+		rsh ${HOST} chmod 777 /tmp/remote_host_put_script
+		rsh $HOST /tmp/remote_host_put_script ${FULL_PATHNAME} ${COMPONENT_NAME} ${FILENAME} ${LOG_MESSAGE} ${USER} ${O_HOST} ${R_HOST} ${PROJECT_NAME}
+
+		set EXIT_STATUS = `rsh ${HOST} sed -n '1p' /tmp/return_code`
+		rsh $HOST rm -f /tmp/return_code >& /dev/null
+		rsh $HOST rm -f /tmp/remote_host_get_script >& /dev/null
+	else
+		echo ERROR : Could not connect to $HOST
+		set EXIT_STATUS = 30
+	endif
+endif
+
+echo $EXIT_STATUS > /tmp/return_code
+exit $EXIT_STATUS
+

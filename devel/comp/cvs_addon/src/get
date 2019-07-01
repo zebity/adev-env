@@ -1,0 +1,84 @@
+#!/bin/csh -f
+#
+# File: get
+#
+# Contents: This script is to "get" a files from the repository
+#           and to optionally lock it.
+#
+# Programmer: John Hartley
+#
+
+set LOCK = N
+set REVISION = -1
+
+if ( $#argv < 1 ) then
+	echo "Usage : get [-l|-u] [-r revision] file"
+	exit 1
+endif
+
+# Parse the arguments
+set PARAMETER = `getopt lur: $*`
+if ( $status != 0 ) then
+	exit 1
+endif
+
+while ("$PARAMETER[1]" != '--')
+	switch ($PARAMETER[1])
+		case '-l':
+			# User has opted to lock file
+			set LOCK = L
+			shift PARAMETER
+			breaksw
+		case '-u':
+			# User has opted to unlock the file
+			set LOCK = U
+			shift PARAMETER
+			breaksw
+		case '-r':
+			# User wants a specific revision of the file
+			shift PARAMETER
+			set REVISION = $PARAMETER[1]
+			shift PARAMETER
+			breaksw
+	endsw
+end # end of loop
+
+# Now $PARAMETER[1] will contain '--' therefore do a shift
+shift PARAMETER
+
+# We are expecting the filename to be in PARAMETER[1]
+if ( $#PARAMETER ) then
+	set FILE = $PARAMETER[1]
+else
+	echo "Usage : get [-l|-u] [-r revision] file"
+	exit 1
+endif
+
+if ($LOCK == N) then
+	set CVS_OPTS = "-r "
+else if ($LOCK == L) then
+	set CVS_OPTS = "-w "
+else if ($LOCK == U) then
+	set CVS_OPTS = "-r"
+endif
+
+if ($REVISION == -1 ) then
+	set STICKY_OPTS = "-A "
+        set REVISION_OPTS = ""
+else
+	set STICKY_OPTS = ""
+        set REVISION_OPTS = "-r$REVISION"
+endif
+
+if ($LOCK == U) then
+	cvs admin -u ${REVISION_OPTS} ${FILE}
+endif
+
+touch ${FILE}
+cvs -q ${CVS_OPTS} update ${STICKY_OPTS} ${REVISION_OPTS} ${FILE}
+
+if ($LOCK == L) then
+	cvs admin -l ${REVISION_OPTS} ${FILE}
+	chmod a+w ${FILE}
+endif
+

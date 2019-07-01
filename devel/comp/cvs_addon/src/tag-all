@@ -1,0 +1,42 @@
+#!/bin/csh -f
+#
+# Project : mde
+#
+# Description :
+#
+# This script will tag a complete project.
+# It is different to the CreateQARelease script in that it does not build
+# and export a project, but merely tags a all the components of a project.
+#
+# It tags all of the files that are found in the components file.
+#
+if ( $#argv > 0 ) then
+	set release_number = $argv[1]
+else
+	set release_number = 
+	echo Usage : `basename $0` release_number
+	exit
+endif
+
+if ( -e ${adm}/components ) then
+	# They are using the standard file.
+	set COMPONENTS_FILE = ${adm}/components
+else
+	# Something went wrong..
+	echo The ${adm}/components file does not exist.
+	echo Do not know which components are part of this system build.
+	exit (1)
+endif
+
+echo Tagging the project...
+
+foreach word ( `cat ${COMPONENTS_FILE}` )
+	echo Tagging ${word}...
+	cd ${pc}/${word}/src
+
+	cvs tag $release_number *.*
+	cvs tag $release_number Makefile
+end
+# The whole system has been tagged.
+endif
+

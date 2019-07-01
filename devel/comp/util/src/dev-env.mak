@@ -1,0 +1,15 @@
+${DEVENV_BIN}/bdexe.mk
+${DEVENV_BIN}/bdlib.mk
+${DEVENV_BIN}/clexe.mk
+${DEVENV_BIN}/cllib.mk
+${DEVENV_BIN}/env_inc.mk
+${DEVENV_BIN}/env_lib.mk
+${DEVENV_BIN}/exe.mk
+${DEVENV_BIN}/lib.mk
+${DEVENV_BIN}/man.mk
+${DEVENV_BIN}/proj_tools.mk
+${DEVENV_BIN}/proj_opts.mk
+${DEVENV_BIN}/rules.mk
+${DEVENV_BIN}/shlib.mk
+${DEVENV_BIN}/scripst.mk
+${DEVENV_BIN}/Makefile

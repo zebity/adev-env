@@ -1,0 +1,50 @@
+#!/bin/csh -f
+
+# Project : MDE
+#
+# Description :
+#
+# This file will contain all of the commands to place back a component of a
+# project 
+#
+set LOCKED_FILES = 0
+
+if ( $#argv < 2 ) then
+	echo Usage : $0 component_name
+	exit 1
+endif
+
+set COMPONENT_NAME = $argv[2]
+
+# Go into the right location
+cd ${c}
+cd $COMPONENT_NAME
+
+# Get the whole list of files in the current component.
+echo Generating a list of files...
+set FILE_LIST = `find . -print | xargs -i file {} | egrep text | cut -f1 -d: | cut -f2- -d'.'`
+
+echo Examining component files...
+echo The following files are locked :
+echo ================================
+foreach file ( $FILE_LIST )
+    # The file is editable, it might be locked.
+	if ( -e ${adm}/locks${file}.lock ) then
+		set LOCKED_FILES = 1
+		echo `basename $file` is locked
+	endif
+end
+echo ================================
+
+if ( $LOCKED_FILES == 1 ) then
+	# Lock files exist
+	echo Cannot place component back into repository, unlock all files.
+	exit 1
+else
+	# No lock files exist.
+	echo Removing local copy of component.  Changes have all been saved.
+	cd $c
+	rm -rf $COMPONENT_NAME
+endif
+
+# End of script

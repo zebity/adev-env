@@ -1,0 +1,12 @@
+#!/bin/csh -f
+#
+# File: upd-proj
+#
+# Contents: This is a trivial script that updates a projects makes files
+#           by clobbering them with the latest ones.
+#
+
+rm -f ${mk}/Makefile ${mk}/*.mk
+cp ${DEVENV_BIN}/*.mk ${mk}
+mv ${mk}/template.mk ${mk}/Makefile
+

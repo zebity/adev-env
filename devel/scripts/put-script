@@ -1,0 +1,232 @@
+#!/bin/tcsh -f
+
+# Project : MDE
+#
+# Description :
+#
+# This file will contain all of the commands to place a file into the
+# repository.
+#
+
+set RM = /bin/rm
+set TEMP_FILE = /tmp/XYZ$$
+set REVISION_NUMBER = -1
+set FILE_TYPE = CPP
+set COMMENT_HEADER = "// "
+set T_SPECIFIED = -1
+set C_SPECIFIED = -1
+
+set OS_VER = `uname -r | cut -c1`
+if ( $OS_VER == 5 ) then
+	set LS = /usr/bin/ls
+else
+	set LS = /usr/5bin/ls
+endif
+
+set PROJECT_NAME = `basename $PROJECT_ROOT`
+
+# Check to see if a valid number of parameters have been entered
+if ( $#argv < 2 ) then
+	echo Usage: `basename $0` \[u user_id\] \[r revision_number\] \
+				   \[t CPP, C, M, S\] \[c comment style\] filename
+else
+    # Parse the arguments
+    set PARAMETER = `getopt r:u:t:c: $*`
+    if ( $status != 0 ) then
+        exit 1
+    endif
+ 
+    while ("$PARAMETER[1]" != '--')
+        switch ($PARAMETER[1])
+            case '-r':
+                # User wants a specific revision of the file
+                shift PARAMETER
+                set REVISION_NUMBER = $PARAMETER[1]
+                shift PARAMETER
+                breaksw
+            case '-u':
+                shift PARAMETER
+                set USER_ID = $PARAMETER[1]
+                shift PARAMETER
+                breaksw
+            case '-t':
+                shift PARAMETER
+                set FILE_TYPE = $PARAMETER[1]
+                shift PARAMETER
+				set T_SPECIFIED = 1
+                breaksw
+            case '-c':
+                shift PARAMETER
+                set COMMENT = $PARAMETER[1]
+                shift PARAMETER
+				set C_SPECIFIED = 1
+                breaksw
+        endsw
+    end # end of loop
+ 
+    # Now $PARAMETER[1] will contain '--' therefore do a shift
+    shift PARAMETER
+
+    # We are expecting the filename to be in PARAMETER[1]
+    if ( $#PARAMETER ) then
+        # A parameter exists, we assume its the filename
+        if ( ! -e $PARAMETER[1] ) then
+            echo ${0}: $PARAMETER[1] does not exist
+            exit 1
+        else
+            set FILE = $PARAMETER[1]
+        endif
+    else
+		echo Usage: `basename $0` \[u user_id\] \[r revision_number\] \
+					   \[t CPP, C, M, S\] \[c comment style\] filename
+        exit 1
+    endif
+
+	# Figure out what comment type to use
+	if ( $C_SPECIFIED == 1 ) then
+		set QUOTE = \"
+		set SPACE = ' '
+		set COMMENT_HEADER = "${QUOTE}${COMMENT}${SPACE}${QUOTE}"
+	else if ( $T_SPECIFIED == 1 ) then
+		if ( $FILE_TYPE == "C" ) then
+			set COMMENT_HEADER = "/* "
+		else if ( $FILE_TYPE == "M" ) then
+			set COMMENT_HEADER = "# "
+		else if ( $FILE_TYPE == "S" ) then
+			set COMMENT_HEADER = "# "
+		else
+			set COMMENT_HEADER = "// "
+		endif
+	endif
+
+	# Check the current location
+	set current_dir = `basename $cwd`
+	if ( $current_dir != "src" ) then
+		# The command is not being executed from the right place
+		echo This command must be executed from the component\'s src directory
+	else
+		# Correct number of parameters
+
+		# strip out the pathname of the component from the $d variable
+		# Find out where we are
+		set ORIGINAL_DIR = $cwd
+
+		cd $PROJECT_ROOT
+		set PROJECT_ROOT_PWD = $cwd
+
+		cd $ORIGINAL_DIR
+		echo $PWD > $TEMP_FILE
+
+		# We now have the two directories.
+		# We should now compare them to see were we are.
+		set IN_PROJECT_AREA = `egrep -c "^${PROJECT_ROOT_PWD}" ${TEMP_FILE}`
+		if ( $IN_PROJECT_AREA == '1' ) then
+			set PRUNED_PATH = `sed -n "s#^.*${pd}/##p" $TEMP_FILE`
+		else
+			set PRUNED_PATH = `sed -n "s#^.*${d}/##p" $TEMP_FILE`
+		endif
+		${RM} $TEMP_FILE
+
+		set COMPONENT_NAME = `echo $PRUNED_PATH | cut -f2 -d/`
+
+		if ( ! -e ${PROJECT_CVS_ROOT}/${PRUNED_PATH}/${FILE},v ) then
+
+			# They are adding a new file to the current component
+
+			cvs -Q add $FILE >& /dev/null 
+			cvs -Q commit $FILE 
+
+			cvs -Q admin -c${COMMENT_HEADER} ${FILE}
+
+			# Bringing the project area up to date.
+			cd ${pd}/${PRUNED_PATH}
+			echo Updating project area in ${pd}/${PRUNED_PATH}...
+			cvs -Q update ${FILE}
+			chmod 444 ${FILE}
+			chown ${USER_ID} ${FILE}
+
+			if ( -e ${d}/${PRUNED_PATH} ) then
+				cd ${d}/${PRUNED_PATH}
+				# Change permissions back to -r--r--r--
+				chmod 444 $FILE
+				chown ${USER_ID} ${FILE}
+			endif
+
+		else if ( -e ${PROJECT_CVS_ROOT}/${PRUNED_PATH}/${FILE},v ) then
+
+			# They are adding a new revision of the file.
+			# Must check to see if they have locked it.
+
+			if ( ! -e ${adm}/locks/${PRUNED_PATH}/${FILE}.lock ) then
+
+				# Lock file does not exist
+				echo $FILE has not been locked.  Changes cannot be saved.
+
+			else if ( -e ${adm}/locks/${PRUNED_PATH}/${FILE}.lock ) then
+
+				# Get user name of lock file
+	set L_O = `${LS} -l ${adm}/locks/${PRUNED_PATH}/${FILE}.lock | cut -f5 -d' '`
+
+				# Get the UID of the owner of the lock
+				set ret_val = `fgrep -c ${L_O}: /etc/passwd`
+				if ( $ret_val > 0 ) then
+					set L_O_UID = `fgrep ${L_O}: /etc/passwd | cut -f3 -d:`
+				else
+					# use the nis file
+					set L_O_UID = `ypcat passwd | fgrep ${L_O}: | cut -f3 -d:`
+				endif
+
+				if ( "$L_O_UID" != "$USER_ID" ) then 
+					# We do not own the lock and therefore file.
+					cat ${adm}/locks/${PRUNED_PATH}/${FILE}.lock
+				else
+					# We do own the lock, therefore we are committing
+
+					cvs admin -c${COMMENT_HEADER} ${FILE} >& /dev/null
+
+					cvs admin -u ${FILE}
+
+					cvs -Q commit ${FILE}
+					chown ${USER_ID} ${FILE}
+
+					# Bringing the project area up to date.
+					cd ${pd}/${PRUNED_PATH}
+					echo Updating project area in ${pd}/${PRUNED_PATH}...
+					${RM} ${FILE}
+					cvs -Q update ${FILE}
+					chmod 444 ${FILE}
+					chown ${USER_ID} ${FILE}
+
+					if ( $IN_PROJECT_AREA != '1' ) then
+						cd ${d}/${PRUNED_PATH}
+						# Change permissions back to -r--r--r--
+						chmod 444 ${FILE}
+					endif
+
+					${RM} ${adm}/locks/${PRUNED_PATH}/${FILE}.lock
+
+					# Extract the information relevant to sychronisation.
+
+					if ( $REMOTE_SITE_SUPPORT == 1 ) then
+						# Extract the log message
+						set LINE = `fgrep -n ${FILE} $CVSROOT/CVSROOT/commitlog | tail -1 | cut -f1 -d:`
+						@ LINE = $LINE + 2
+						set LOG_MESSAGE = `sed -n $LINE',$p' $CVSROOT/CVSROOT/commitlog`
+
+						if (! -e ${adm}/synchronisation_data ) then
+							touch ${adm}/synchronisation_data
+						endif
+
+						set REMOTE_HOST = `sed -n '1p' remote_sites`
+						set FULL_PATHNAME = ${pc}/${COMPONENT_NAME}/src/${FILE}
+echo user is = $USER
+						set LOCAL_HOST = `uname -n`
+
+						echo ${FULL_PATHNAME}:${LOCAL_HOST}:${REMOTE_HOST}:${PROJECT_NAME}:${LOG_MESSAGE} >> ${adm}/synchronisation_data
+				endif
+			endif
+		endif
+	endif
+endif
+
+# End of script

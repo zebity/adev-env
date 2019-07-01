@@ -1,0 +1,32 @@
+#!/bin/csh -f
+
+# This script will check in a component.  It requires that the user has done a 
+# SetProject into the project that this command will be used for.
+# 
+# This script must be executed from the src directory of the component.
+
+if  ( $#argv > 0 ) then
+	set Component = $argv[1]
+else
+	set Component = 
+	echo Usage : `basename $0` component_name
+	exit
+endif
+
+cd $pc/${Component}/src
+
+cvs -Q import -m "Added component to the repository" ${CVSROOT}/components/${Component}/src reltag vendtag
+
+cd ${CVSROOT}/CVSROOT
+
+co -l modules
+echo $Component -a components/${Component}/src >> modules
+ci -u modules
+
+cd $pd
+cvs -Q -r checkout $Component
+
+echo Updating project file...
+echo ${Component} >> ${adm}/components
+
+echo Done.

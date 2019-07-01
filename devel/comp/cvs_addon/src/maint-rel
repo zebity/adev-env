@@ -1,0 +1,38 @@
+#!/bin/csh -f
+# Project : mde
+#
+# Description:
+#
+# This script creates a maintenenace release. It accepts the projects
+# PROJECT_ROOT as a parameter, and the name of the new project.
+#
+set verbose
+
+if ( $#argc != 2 ) then
+	echo Usage : $0 project_dir 
+	exit
+endif
+
+set CURRENT_PROJECT_NAME = $argv[1]
+if (! -e $CURRENT_PROJECT_NAME ) then
+	echo $CURRENT_PROJECT_NAME does not exit, specify a valid path
+	exit
+endif
+
+if ( -e ${CURRENT_PROJECT_NAME}_release ) then 
+	# echo Project already exists...
+	exit 1
+endif
+
+# Create the project
+CreateProject ${CURRENT_PROJECT_NAME}_release
+
+# Copy the repository to the new location.
+rm -rf ${CURRENT_PROJECT_NAME}/repository/
+cp -r ${CURRENT_PROJECT_NAME}/repository /development/${CURRENT_PROJECT_NAME}_release/
+
+cp -r ${CURRENT_PROJECT_NAME}/admin /development/${CURRENT_PROJECT_NAME}_release/
+
+# needs to change to pull out tagged release
+cp -r ${CURRENT_PROJECT_NAME)/devel /development/${CURRENT_PROJECT_NAME}_release/
+

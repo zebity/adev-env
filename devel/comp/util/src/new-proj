@@ -1,0 +1,49 @@
+#!/bin/csh -f
+#
+# File: new-proj
+#
+# Contents: Script to setup a new development project
+#
+# Programmer: George Siatos (Original Implementation)
+#             John Hartley (Generic Reinterpretation)
+#
+
+if ( -f ~/dev-env.cfg) then
+	source ~/dev-env.cfg
+else if ( -f /usr/local/etc/dev-env.cfg) then
+	source /usr/local/etc/dev-env.cfg
+else
+	echo "Require ~/dev-env.cfg or /etc/dev-env.cfg file"
+	exit(1)
+endif
+
+set ERR_NO = 0
+
+umask 02
+
+if ( $#argv != 1 ) then
+	echo Usage : `basename $0` "project name"
+	set ERR_NO = 1
+else
+	set PROJECT_NAME = $argv[1]
+	set PROJECT_ROOT = ${DEVENV_ROOT}/${PROJECT_NAME}
+	if ( -d ${PROJECT_ROOT} )  then
+		echo Project ${PROJECT_ROOT} already exists 
+		set ERR_NO = 2
+	else
+		# Directory does not exist, i.e. new project.
+		echo Creating project ${PROJECT_NAME} in ${PROJECT_ROOT}...
+
+		# Make all the directories
+		mkdir $PROJECT_ROOT
+		cd $PROJECT_ROOT
+		if ( -f ${DEVENV_BIN}/dev-env.dir) then
+			foreach I (`cat ${DEVENV_BIN}/dev-env.dir`)
+				mkdir $I
+			end
+		endif
+	endif
+endif
+
+exit ($ERR_NO)
+

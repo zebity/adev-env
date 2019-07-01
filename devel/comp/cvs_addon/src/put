@@ -1,0 +1,101 @@
+#!/bin/tcsh -f
+#
+# File: put
+#
+# Contents: This file contains the script to put files back into
+#           the repository.
+#
+
+set REVISION = -1
+set COMMENTS = "// "
+set LOCK = N
+
+# Check to see if a valid number of parameters have been entered
+if ( $#argv < 1 ) then
+	echo "Usage: `basename $0` [-l] [-r revision] file"
+	exit 1
+endif
+
+# Parse the arguments
+set PARAMETER = `getopt lr: $*`
+if ( $status != 0 ) then
+	exit 1
+endif
+ 
+while ("$PARAMETER[1]" != '--')
+	switch ($PARAMETER[1])
+	case '-r':
+		# User wants a specific revision of the file
+		shift PARAMETER
+		set REVISION_NUMBER = $PARAMETER[1]
+		breaksw
+	case '-l':
+		# User wants to keep the file locked
+		set LOCK = L
+		breaksw
+	endsw
+	shift PARAMETER
+end # end of loop
+ 
+# Now $PARAMETER[1] will contain '--' therefore do a shift
+shift PARAMETER
+
+# We are expecting the filename to be in PARAMETER[1]
+if ( $#PARAMETER ) then
+	# A parameter exists, we assume its the filename
+	if ( ! -f $PARAMETER[1] ) then
+		echo ${0}: $PARAMETER[1] does not exist
+		exit 1
+	else
+		set FILE = $PARAMETER[1]
+	endif
+else
+	echo "Usage: `basename $0` [-l] [r revision] file"
+	exit 1
+endif
+
+# Make the file type comments work
+set EXTENSION = `echo $FILE | cut -f2 -d'.'`
+if ( $EXTENSION == "c" ) then
+	set COMMENTS = " * "
+else if ( $EXTENSION == "cpp" ) then
+	set COMMENTS = "// "
+else if ( $EXTENSION == "cc" ) then
+	set COMMENTS = "// "
+else if ( $EXTENSION == "h" ) then
+	set COMMENTS = "// "
+else if ( $EXTENSION == "htt" ) then
+	set COMMENTS = "// "
+else if ( $EXTENSION == "inl" ) then
+	set COMMENTS = "// "
+else
+	set COMMENTS = "# "
+endif
+
+if ($LOCK == N) then
+	set CVS_OPTS = "-r "
+else if ($LOCK == L) then
+	set CVS_OPTS = "-w "
+endif
+
+if ($REVISION == -1 ) then
+        set STICKY_OPTS = "-A "
+        set REVISION_OPTS = ""
+else
+        set STICKY_OPTS = ""
+        set REVISION_OPTS = "-r$REVISION"
+endif
+
+cvs -Q ${CVS_OPTS} add $FILE
+cvs -q admin -c${COMMENTS} ${FILE}
+
+# Commit the changes
+cvs admin -u $REVISION_OPTS $FILE
+touch ${FILE}
+cvs -q ${CVS_OPTS} commit ${FILE}
+
+if ( $LOCK == L) then
+	cvs admin -l $REVISION_OPTS $FILE
+endif
+#
+

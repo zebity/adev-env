@@ -1,0 +1,54 @@
+#!/bin/csh -f
+#
+# Project : MDE
+#
+# Description :
+#
+# This scripts will get the file for the user, from revision control.  It will
+# also create the lock file.
+#
+
+set PROJECT_NAME = `basename ${PROJECT_ROOT}`
+set INSTALL_DIR = ~/${PROJECT_NAME}_development
+
+if ( $#argv < 1 ) then
+	echo Usage : GetComponent ComponentName
+else
+	set MODULE_NAME = $argv[1]
+
+	if ( ! -e $INSTALL_DIR ) then
+		# Install dir does not exist
+		mkdir $INSTALL_DIR
+	endif
+
+	set MODULE_DIR = components/$MODULE_NAME 
+	set COMPONENT_DIR = ${INSTALL_DIR}/$MODULE_DIR
+
+	# Found the module in the modules file.
+	cd $INSTALL_DIR
+	echo Checking out $MODULE_NAME into $INSTALL_DIR...
+	cvs -Q -r checkout $MODULE_NAME
+
+	if ( $status == 0 ) then
+
+		cd $COMPONENT_DIR
+		mkdir deps
+		mkdir target
+		mkdir objs
+
+		if ( ! -d deps/${PROJECT_OS_TYPE} ) then
+			# Directory does not exist for that OS_TYPE
+			mkdir deps/${PROJECT_OS_TYPE}
+		endif
+
+		if ( ! -d objs/${PROJECT_OS_TYPE} ) then
+			# Directory does not exist for that OS_TYPE
+			mkdir objs/${PROJECT_OS_TYPE}
+		endif
+
+		if ( ! -d target/${PROJECT_OS_TYPE} ) then
+			# Directory does not exist for that OS_TYPE
+			mkdir target/${PROJECT_OS_TYPE}
+		endif
+
+	endif

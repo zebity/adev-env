@@ -1,0 +1,60 @@
+#!/bin/csh -f
+
+# Project : mde
+#
+# Description :
+#
+# This script will be executed on the remote host.  It will set up the
+# shortcuts, and then check to see if the file in question is locked.
+#
+
+if ( $#argv < 2 ) then
+    echo Usage : $0 full_pathname component_name filename log_message user\
+	localhost remote_host project_name
+else
+    set FULL_PATHNAME = $argv[1]
+	set COMPONENT_NAME = $argv[2]
+	set FILENAME = $argv[3]
+	set LOG_MESSAGE = $argv[4]
+	set USER = $argv[5]
+	set LOCALHOST = $argv[6]
+	set REMOTE_HOST = $argv[7]
+	set PROJECT_NAME = $argv[8]
+
+echo FULL_PATHNAME = $FULL_PATHNAME
+echo COMPONENT_NAME = $COMPONENT_NAME
+echo FILENAME = $FILENAME
+echo LOG_MESSAGE = $LOG_MESSAGE
+echo USER = $USER
+echo O_HOST = $O_HOST
+echo R_HOST = $R_HOST
+echo PROJECT_NAME = $PROJECT_NAME
+
+
+	setenv PROJECT_ROOT /development/${PROJECT_NAME}
+
+	set USERNAME = `finger $USER | fgrep "In real life" | head -1 | cut -f3 -d:`
+
+	if(-e ${PROJECT_ROOT}/devel/environment/project.cshrc) then
+		source /development/${PROJECT_NAME}/devel/environment/project.cshrc
+
+		# Copy the modified file into the other project area.
+		rcp ${O_HOST}:${FULL_PATHNAME} ${pc}/${COMPONENT_NAME}/src/
+
+		cd ${pc}/${COMPONENT_NAME}/src/
+
+		cvs -Q commit -m ${LOG_MESSAGE} ${FILENAME}
+
+
+
+
+
+
+
+	else
+		echo $PROJECT_NAME is not configured on `hostname`
+		echo 40 > /tmp/return_code
+		exit 40
+	endif
+endif
+

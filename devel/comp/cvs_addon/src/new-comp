@@ -1,0 +1,86 @@
+#!/bin/csh -f
+#
+# File: new-comp
+#
+# Contents: This scripts add a new component into the project.
+#
+#
+if ( $#argv < 1 ) then
+	echo Usage : `basename $0` component_name
+	exit 1
+endif
+
+set COMP = $argv[1]
+
+if ( ! -d ${pc}/${COMP} ) then
+	mkdir ${pc}/${COMP}
+	if ( -f ${DEVENV_BIN}/comp.dir) then
+		foreach I (`cat ${DEVENV_BIN}/comp.dir`)
+			if ( ! -d ${pc}/${COMP}/${I} ) then
+				mkdir ${pc}/${COMP}/${I}
+			endif
+		end
+	endif
+endif
+
+if ( ! -f ${pc}/${COMP}/src/Makefile ) then
+	cp ${mk}/template.mk ${pc}/${COMP}/src/Makefile
+endif
+
+echo Registering the component with CVS and the project...
+
+set ORIG_DIR = $cwd
+cd ${pc}/${COMP}/src
+
+set TEMP_FILE = /tmp/XYZ$$
+set TEMP_PWD = $cwd
+
+# Stripping $d from the pathname
+echo $TEMP_PWD > $TEMP_FILE
+set PRUNED_PATH = `sed -n "s#^.*${pd}/##p" $TEMP_FILE`
+rm $TEMP_FILE
+set COMP = `echo $PRUNED_PATH | cut -f2 -d/`
+
+# Check to see if the sub-component directory exists in the repos.
+if ( ${HAVE_CVS} == "yes" ) then
+	if ( ! -d ${CVSROOT}/${PRUNED_PATH} ) then
+		# The sub-component repository directory does not exists.
+
+		echo "Placing all files in current directory into repository..."
+
+		cvs -Q import -m "Added component to repository" \
+			${CVSROOT}/${PRUNED_PATH} vendtag reltag 
+
+		cd ${CVSROOT}/CVSROOT
+		co -l modules
+		echo $COMP -a $PRUNED_PATH >> modules
+		ci -u modules
+
+		# Add the component to the components list
+		if ( -e ${adm}/components ) then
+			echo $COMP >> ${adm}/components
+		else
+			echo $COMP > ${adm}/components
+		endif
+
+		cd ${pd}
+		cvs -Q -r checkout $COMP
+
+		cd $ORIG_DIR
+	else
+		# Component already exists.
+		echo $COMP already exists in the repository
+	endif
+else
+	# Add the component to the components list
+	if ( -e ${adm}/components ) then
+		echo $COMP >> ${adm}/components
+	else
+		echo $COMP > ${adm}/components
+	endif
+
+	cd ${pd}
+	cd $ORIG_DIR
+endif
+
+# End of script

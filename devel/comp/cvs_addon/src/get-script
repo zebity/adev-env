@@ -1,0 +1,187 @@
+#!/bin/tcsh -f
+#
+# Project : MDE
+#
+# Description :
+#
+# This scripts will get the file for the user, from revision control.  It will
+# also create the lock file.
+#
+
+set TEMP_FILE = /tmp/get$$
+set RM = /bin/rm
+
+set LOCK_FILE = 0
+set USERNAME = `finger $USER | fgrep "In real life" | head -1 | cut -f3 -d:`
+set REVISION_NUMBER = -1
+set PROJECT_NAME = `basename $PROJECT_ROOT`
+
+if ( $#argv < 1 ) then
+	echo Usage : get \[l\] \[r revision_number \] filename
+else
+	# Parse the arguments
+	set PARAMETER = `getopt lr:u: $*`
+	if ( $status != 0 ) then
+		exit 1
+	endif
+
+	while ("$PARAMETER[1]" != '--')
+		switch ($PARAMETER[1])
+			case '-l':
+				# User has opted to lock file
+				set LOCK_FILE = 1
+				shift PARAMETER
+				breaksw
+			case '-r':
+				# User wants a specific revision of the file
+				shift PARAMETER
+				set REVISION_NUMBER = $PARAMETER[1]
+				shift PARAMETER
+				breaksw
+			case '-u':
+				shift PARAMETER
+				set ORIGINAL_UID = $PARAMETER[1]
+				shift PARAMETER
+				breaksw
+		endsw
+	end # end of loop
+
+	# Now $PARAMETER[1] will contain '--' therefore do a shift
+	shift PARAMETER
+
+	# We are expecting the filename to be in PARAMETER[1]
+	if ( $#PARAMETER ) then
+		# A parameter exists, we assume its the filename
+		set FILE = $PARAMETER[1]
+	else
+		echo Usage : get \[l\] \[r revision_number \] filename
+		exit 1
+	endif
+
+	# strip out the pathname of the component from the $d variable
+	# Find out where we are
+	set ORIGINAL_DIR = $cwd
+
+	cd $PROJECT_ROOT
+	set PROJECT_ROOT_PWD = $cwd
+
+	cd $ORIGINAL_DIR
+	echo $PWD > $TEMP_FILE
+
+	# We now have the two directories.
+	# We should now compare them to see were we are.
+	set IN_PROJECT_AREA = `egrep -c "^${PROJECT_ROOT_PWD}" ${TEMP_FILE}`
+	if ( $IN_PROJECT_AREA == '1' ) then
+		set PRUNED_PATH = `sed -n "s#^.*${pd}/##p" $TEMP_FILE`
+	else
+		set PRUNED_PATH = `sed -n "s#^.*${d}/##p" $TEMP_FILE`
+	endif
+	${RM} $TEMP_FILE
+
+	# Check to see if the lock directory exists for that component
+	if ( ! -d ${adm}/locks/${PRUNED_PATH} ) then
+		# The lock directory does not exist.
+
+        set COMPONENT_NAME = `echo $PRUNED_PATH | cut -f2 -d/`
+
+		# Create the lock directory for the component.
+		mkdir ${adm}/locks/components/$COMPONENT_NAME
+		mkdir ${adm}/locks/components/$COMPONENT_NAME/src
+	endif
+
+	if ( $LOCK_FILE == 1 ) then
+		# Users wish to lock the file
+		if ( -e ${adm}/locks/${PRUNED_PATH}/${FILE}.lock ) then
+			# Lock file also exists for that file
+			cat ${adm}/locks/${PRUNED_PATH}/${FILE}.lock
+		else
+
+			# Create lock file
+			echo $FILE locked on `date '+%a, %d of %h at %r'` by $USERNAME \
+				> ${adm}/locks/${PRUNED_PATH}/${FILE}.lock
+
+			# Change te owner of the lock file
+			chown $ORIGINAL_UID ${adm}/locks/${PRUNED_PATH}/${FILE}.lock
+
+			# We have staked our claim, now lets see if the file has not been
+			# locked in the mean-time, over at the other site.
+
+			if ( $REMOTE_SITE_SUPPORT == 1 ) then
+				# There is another site in this project
+				set REMOTE_HOST = `sed -n '1p' $adm/remote_sites`
+
+				# Connect to the right machine
+				rcp /development/mde/release/version_1.0/mocom10_get_script mocom10:/tmp
+				rsh mocom10 chmod 777 /tmp/mocom10_get_script
+				rsh mocom10 /tmp/mocom10_get_script $REMOTE_HOST ${PRUNED_PATH}/${FILE}.lock $PROJECT_NAME $USER
+				set EXIT_STATUS = `rsh mocom10 sed -n '1p' /tmp/return_code`
+				rsh mocom10 rm -f /tmp/mocom10_get_script >& /dev/null		
+				rsh mocom10 rm -f /tmp/return_code >& /dev/null		
+
+				# Check to see if the lock file exists there.
+				if ( $EXIT_STATUS == 45 ) then 
+					# Lock file exists on the remote system
+					echo ${FILE} has been locked on the remote site.
+					${RM} ${adm}/locks/${PRUNED_PATH}/${FILE}.lock
+				else if ( $EXIT_STATUS == 35 ) then
+					# The file is not locked by anyone, therefore we can
+					# have it...
+
+					# Get the file from our local repository...
+					# Figure out the right revision number
+
+					cvs admin -l ${FILE}
+					chmod 644 ${FILE}
+
+					if ( $REVISION_NUMBER == -1 ) then
+						cvs -Q update ${FILE}
+					else
+						# Do the checkout of the revision that they requested.
+						cvs -Q update -r $REVISION_NUMBER ${FILE}
+						cvs -Q update -A ${FILE}
+					endif
+
+					# Change owner to reflect the user and not runner of script
+					chown ${ORIGINAL_UID} ${FILE}
+				else if ( $EXIT_STATUS == 40 ) then
+					echo $PROJECT_NAME not configured properly on the remote\
+					system.  Locking of files will not be permitted...
+				else if ( $EXIT_STATUS == 30 ) then
+					echo Could not connect to remote site.  Locking of files \
+					will not be permitted...
+				endif
+			else
+				# No remote sites exist...
+				# Figure out the right revision number
+				if ( $REVISION_NUMBER == -1 ) then
+					cvs -Q update ${FILE}
+				else
+					# Do the checkout of the revision that they requested.
+					cvs -Q update -r $REVISION_NUMBER ${FILE}
+					cvs -Q update -A ${FILE}
+				endif
+
+				# Change owner to reflect the user and not runner of script
+				chown ${ORIGINAL_UID} ${FILE}
+				cvs admin -l ${FILE}
+				chmod 644 ${FILE}
+			endif
+		endif
+	else
+		# They do not wish to lock the file
+
+		# Figure out the right revision number
+		if ( $REVISION_NUMBER == -1 ) then
+			cvs -Q update ${FILE}
+		else
+			# Do the checkout of the revision that they requested.
+			cvs -Q update -r $REVISION_NUMBER ${FILE}
+			cvs -Q update -A ${FILE}
+		endif
+
+		# Change owner to reflect the user and not runner of script
+		chown ${ORIGINAL_UID} ${FILE}
+		chmod 644 ${FILE} 
+	endif
+endif
+

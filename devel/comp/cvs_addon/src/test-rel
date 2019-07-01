@@ -1,0 +1,138 @@
+#!/bin/csh -f
+#
+# Project : mde
+#
+# Description :
+#
+# This script will create a new area that will be used for testing the newly
+# published software. 
+#
+
+echo Creating QA release...
+
+# Check to see if there are any files locked.
+set LOCKED_FILES = `find ${adm}/locks -print | fgrep ".lock" | wc -l`
+set NEW_RELEASE_NUMBER = 0
+
+if ( ${LOCKED_FILES} != 0 ) then
+	echo All files must be checked in, when creating a quarantine release.
+	echo ' '
+	echo The following files must be checked in :
+	echo ' '
+	find $adm/locks -print | fgrep ".lock" | cut -f6- -d"/"
+	echo ' '
+	echo Run `basename $0` when all of the files have been checked in.
+else
+	# All of the projects files are checked in.
+
+	# Figure out what version it is.
+	if ( -e ${adm}/release_info ) then
+		set RELEASE_NUMBER = `sed -n '1p' ${adm}/release_info`
+
+		echo Previous release was tagged as : ${RELEASE_NUMBER}
+
+		echo -n "Please enter the appropriate tag for this quarantine release : "
+		set NEW_RELEASE_NUMBER = $<
+
+		rm -f ${adm}/release_info
+
+		echo ${NEW_RELEASE_NUMBER} > ${adm}/release_info
+	else
+		echo This is the first release, it must be labelled r1_0%qa1 
+
+		echo -n "If that is correct then enter the above number as the tag : "
+		set NEW_RELEASE_NUMBER = $<
+
+		echo ${NEW_RELEASE_NUMBER} > ${adm}/release_info
+	endif
+
+	# Apply tag to all components of this system. i.e all components that are
+	# part of this build.
+
+	if ( -e ${adm}/${PROJECT_OS_TYPE}_components ) then
+		# Use this list as the list of things to tag.
+		set COMPONENTS_FILE = ${adm}/${PROJECT_OS_TYPE}_components
+	else if ( -e ${adm}/components ) then
+		# They are using the standard file.
+		set COMPONENTS_FILE = ${adm}/components
+	else
+		# Something went wrong..
+		echo The ${adm}/components file does not exist.
+		echo Do not know which components are part of this system build.
+		exit 1
+	endif
+
+	# Set up the quarantine area.
+	if ( ! -d ${qa}/bin ) then
+		mkdir ${qa}/bin 
+	endif
+
+	if ( ! -d ${qa}/lib ) then
+		mkdir ${qa}/lib 
+	endif
+
+	if ( ! -d ${qa}/include ) then
+		mkdir ${qa}/include 
+	endif
+
+	if ( ! -d ${qa}/scripts ) then
+		mkdir ${qa}/scripts 
+	endif
+
+	# For each component in the $COMPONENTS_FILE loop
+	set TOTAL_LINES = `wc -l $COMPONENTS_FILE | cut -c1-8`
+	set LINES_READ = 1
+
+	while ( $LINES_READ <= $TOTAL_LINES )
+
+		set COMPONENT = `sed -n ${LINES_READ}'p' ${COMPONENTS_FILE}`
+
+		echo Tagging ${COMPONENT}...
+		cvs -Q rtag ${NEW_RELEASE_NUMBER} ${COMPONENT}
+
+		echo Building ${COMPONENT}...
+		cd ${pc}/${COMPONENT}/src
+		make clean
+		make install 
+
+		# Check to see if it is an executable
+		ls -lF ${pc}/${COMPONENT}/target/${PROJECT_OS_TYPE} | egrep -c '*\*' >& /dev/null
+
+		if ( $status == 0 ) then
+			# File is an executable
+			echo Installing executable of $COMPONENT in "$qa"/bin...
+			cp ${pc}/${COMPONENT}/target/${PROJECT_OS_TYPE}/* ${qa}/bin
+		endif
+
+		ls -l ${pc}/${COMPONENT}/target/${PROJECT_OS_TYPE} | egrep -c 'lib.*\.so' >& /dev/null
+
+		if ( $status == 0 ) then
+			# File is a shared library
+			echo Installing shared library of $COMPONENT in "$qa"/lib...
+			/development/mde/release/version_1.0/etp exports ${pc}/${COMPONENT}/src/Makefile | xargs -ih_f cp ${pc}/${COMPONENT}/src/h_f ${qa}/include/h_f 
+			chmod 666 ${qa}/include/*.h 
+			cp ${pc}/${COMPONENT}/target/${PROJECT_OS_TYPE}/lib*.so ${qa}/lib
+		endif
+
+		ls -l ${pc}/${COMPONENT}/target/${PROJECT_OS_TYPE} | egrep -c 'lib.*\.a' >& /dev/null
+
+		if ( $status == 0 ) then
+			# File is a static library
+			echo Installing static library of $COMPONENT in "$qa"/lib...
+			/development/mde/release/version_1.0/etp exports ${pc}/${COMPONENT}/src/Makefile | xargs -ih_f cp ${pc}/${COMPONENT}/src/h_f ${qa}/include/h_f 
+			chmod 666 ${qa}/include/*.h 
+			cp ${pc}/${COMPONENT}/target/${PROJECT_OS_TYPE}/lib*.a ${qa}/lib
+		endif
+
+		@ LINES_READ ++
+	end
+
+	# The whole system has been built.
+
+	# Copy the scripts
+	cp $s/* $qa/scripts >& /dev/null
+	if ( $status == 1 ) then
+		echo Could not find any scripts... 
+	endif
+
+endif

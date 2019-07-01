@@ -1,0 +1,65 @@
+#!/bin/csh -f
+
+# Project : mde
+#
+# Description :
+#
+# This script will synchronise the remote sites.
+#
+#
+
+set TEMP_FILE = /tmp/gks$$
+@ PING_COUNT = 0
+@ MAX_RETRIES = 5
+@ EXIT_STATUS = 1
+
+if ($#argv < 1) then
+	echo Usage : $0 configuration_file
+	exit 1
+endif
+
+set DATA_FILE = $argv[1]
+
+if ( ! -e $DATA_FILE ) then
+	# The configuration does not exist
+	echo The configuration file $DATA_FILE does not exist
+	exit 1
+endif
+
+	sed -n 1'p' $DATA_FILE > $TEMP_FILE
+
+	set FULL_PATHNAME = `cut -f1 -d: $TEMP_FILE`
+	set LOCAL_HOST = `cut -f2 -d: $TEMP_FILE`
+	set REMOTE_HOST = `cut -f3 -d: $TEMP_FILE`
+	set PROJECT_NAME = `cut -f4 -d: $TEMP_FILE`
+	set LOG_MESSAGE = `cut -f5 -d: $TEMP_FILE`
+
+	echo FULL_PATHNAME = $FULL_PATHNAME 
+	echo LOCAL_HOST = $LOCAL_HOST
+	echo REMOTE_HOST = $REMOTE_HOST
+	echo PROJECT_NAME = $PROJECT_NAME
+	echo LOG_MESSAGE = $LOG_MESSAGE
+
+	# Wake up the other system
+	ppp-connect $REMOTE_HOST
+
+	while ( $PING_COUNT < $MAX_RETRIES )
+		ping $REMOTE_HOST 150 | grep "is alive" > /dev/null
+		if ( $status != 0 ) then
+			@ PING_COUNT ++
+		else
+			@ EXIT_STATUS = 0
+			break
+		endif
+	end
+
+	if ( $EXIT_STATUS != 0 ) then
+		echo Could not connect to $REMOTE_HOST
+		exit 1
+	else
+		# Copy the file across to the remote system.
+		rcp ${LOCAL_HOST}:${FULL_PATHNAME} ${REMOTE_HOST}
+
+		rsh ${REMOTE_HOST} remote_checkin ${FULL_PATHNAME} ${LOG_MESSAGE}
+endif
+

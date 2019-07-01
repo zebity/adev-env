@@ -1,0 +1,38 @@
+#!/bin/csh -f
+
+# Project : mde
+#
+# Description :
+#
+# This will execute some stuff on mocom10, and connect to $HOSTNAME.
+#
+
+set EXIT_STATUS = 1
+if ( $#argv < 2 ) then
+	echo Usage : $0 hostname
+else
+	set HOST = $argv[1]
+	set LOCK_FILE = $argv[2]
+	set PROJECT_NAME = $argv[3]
+	set LOCAL_USER = $argv[4]
+
+	echo Connecting to $HOST, this may take a while...
+	/development/mde/release/version_1.0/ppp-connect $HOST
+
+	if ( $status == 0 ) then
+		# Managed to connect.
+		rcp /development/mde/release/version_1.0/remote_host_get_script ${HOST}:/tmp
+		rsh ${HOST} chmod 777 /tmp/remote_host_get_script
+		rsh $HOST /tmp/remote_host_get_script $LOCK_FILE $LOCAL_USER $PROJECT_NAME
+		set EXIT_STATUS = `rsh ${HOST} sed -n '1p' /tmp/return_code`
+		rsh $HOST rm -f /tmp/return_code >& /dev/null
+		rsh $HOST rm -f /tmp/remote_host_get_script >& /dev/null
+	else
+		echo ERROR : Could not connect to $HOST
+		set EXIT_STATUS = 30
+	endif
+endif
+
+echo $EXIT_STATUS > /tmp/return_code
+exit $EXIT_STATUS
+

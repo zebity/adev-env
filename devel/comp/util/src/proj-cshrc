@@ -1,0 +1,180 @@
+#
+# File: proj-cshrc
+#
+# Contents: This file contains script to establish the development
+#           envionment, shell variables etc.
+#
+# Note: This file is "sourced" on develelopment environment startup.
+#
+
+if ( ! $?PROJECT_ROOT ) then
+	# Project root is not set 
+	echo ERROR : PROJECT_ROOT not set. Do not know where $PROJECT_NAME is.
+	exit
+else
+
+	set PROJECT_NAME = `basename $PROJECT_ROOT`
+
+	if ( ! -d $PROJECT_ROOT ) then
+		# Project does exist in the default location.
+		echo Project $PROJECT_NAME is not in the default location
+	else
+		# Everything is O.K.
+
+		# Now check the directories and then set up the shortcuts.
+		if ( -d $PROJECT_ROOT/admin ) then
+			setenv adm $PROJECT_ROOT/admin
+		else
+			echo -n Unable to set up \$adm shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/admin does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/devel ) then
+			setenv pd $PROJECT_ROOT/devel
+		else
+			echo -n Unable to set up \$pd shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/devel does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/include ) then
+			if ( ! -d $PROJECT_ROOT/include/${PROJECT_OS_TYPE} ) then
+				mkdir $PROJECT_ROOT/include/${PROJECT_OS_TYPE}
+		 	endif
+			setenv inc $PROJECT_ROOT/include/${PROJECT_OS_TYPE}
+		else
+			echo -n Unable to set up \$inc shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/include does not exist
+		endif
+
+		if ( -d $PROJECT_ROOT/lib ) then
+			if ( ! -d $PROJECT_ROOT/lib/${PROJECT_OS_TYPE} ) then
+				mkdir $PROJECT_ROOT/lib/${PROJECT_OS_TYPE}
+			endif
+			setenv lib $PROJECT_ROOT/lib/${PROJECT_OS_TYPE}
+		else
+			echo -n Unable to set up \$lib shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/lib does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/tmp ) then
+			setenv tmp $PROJECT_ROOT/tmp
+		else
+			echo -n Unable to set up \$tmp shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/tmp does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/test ) then
+			setenv qa $PROJECT_ROOT/test
+		else
+			echo -n Unable to set up \$qa shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/test does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/release ) then
+			setenv rel $PROJECT_ROOT/release
+		else
+			mkdir $PROJECT_ROOT/release
+			setenv rel $(PROJECT_ROOT)/release
+			echo 'The directory ${PROJECT_ROOT}/release did not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/devel/make ) then
+			setenv mk $PROJECT_ROOT/devel/make
+		else
+			echo -n Unable to set up \$mk shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/devel/make does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/devel/comp ) then
+			setenv pc $PROJECT_ROOT/devel/comp
+		else
+			echo -n Unable to set up \$pc shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/devel/comp does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/devel/env ) then
+			setenv env $PROJECT_ROOT/devel/env
+		else
+			echo -n Unable to set up \$env shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/devel/env does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/devel/scripts ) then
+			setenv sr $PROJECT_ROOT/devel/scripts
+		else
+			echo -n Unable to set up \$s shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/devel/scripts does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/devel/schema ) then
+			setenv sc $PROJECT_ROOT/devel/schema
+		else
+			echo -n Unable to set up \$sc shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/devel/schema does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/bin ) then
+			if ( ! -d $PROJECT_ROOT/bin/${PROJECT_OS_TYPE} ) then
+				mkdir $PROJECT_ROOT/bin/${PROJECT_OS_TYPE}
+			endif
+			setenv bin $PROJECT_ROOT/bin/${PROJECT_OS_TYPE}
+		else
+			echo -n Unable to set up \$sc shortcut, 
+			echo ' the directory ${PROJECT_ROOT}/bin/${PROJECT_OS_TYPE} does not exist'
+		endif
+
+		if ( -d $PROJECT_ROOT/repository ) then
+			setenv CVSROOT $PROJECT_ROOT/repository
+		else
+			if ( ${HAVE_CVS} == "yes" ) then
+				echo -n Unable to set up \$CVSROOT
+				echo ' the directory ${PROJECT_ROOT}/repository does not exist'
+			endif
+		endif
+
+		if ( ! -d ${PROJECT_ROOT}/lib/${PROJECT_OS_TYPE} ) then
+                        echo Creating $PROJECT_OS_TYPE in lib...
+                        mkdir ${PROJECT_ROOT}/lib/${PROJECT_OS_TYPE}
+		endif
+
+		if ( ! -d ${PROJECT_ROOT}/bin/${PROJECT_OS_TYPE} ) then
+			echo Creating $PROJECT_OS_TYPE in bin...
+			mkdir ${PROJECT_ROOT}/bin/${PROJECT_OS_TYPE}
+		endif
+
+		if ( ! -d ${rel}/${PROJECT_OS_TYPE} ) then
+			echo Creating $PROJECT_OS_TYPE in `basename ${r}`...
+			mkdir ${rel}/${PROJECT_OS_TYPE}
+		endif
+
+		if ( -e ${adm}/${PROJECT_OS_TYPE}_components ) then
+			# User has specified a specific list of components that belong
+			# to this os build
+			set DEVENV_COMPS = ${adm}/${PROJECT_OS_TYPE}_components
+		else
+			# The default file exists
+			set DEVENV_COMPS = ${adm}/components
+		endif
+
+		# Now loop through the files in the appropriate components file
+		# to check to see if they have the right directories in existence.
+		if ( -f $DEVENV_COMPS ) then
+			foreach word ( `cat ${DEVENV_COMPS}` )
+				if ( -d ${pc}/${word} ) then
+					# Component is checked out...
+
+					if ( ! -d ${pc}/${word}/obj/${PROJECT_OS_TYPE} ) then
+						# Directory does not exist for that OS_TYPE	
+						echo Creating $PROJECT_OS_TYPE in ${word}/obj...
+						mkdir ${pc}/${word}/obj/${PROJECT_OS_TYPE}
+					endif
+
+				endif
+
+			end # end of foreach statement
+		endif
+
+		setenv PATH ${DEVENV_BIN}:${PATH}
+
+	endif
+endif

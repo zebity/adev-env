@@ -1,0 +1,43 @@
+#!/bin/csh -f
+
+# Project : mde
+#
+# Description :
+#
+# This script will be executed on the remote host.  It will set up the
+# shortcuts, and then check to see if the file in question is locked.
+#
+
+if ( $#argv < 2 ) then
+	echo Usage : $0 lock_file_pathname username project_name
+else
+	set LOCK_FILE = $argv[1]
+	set USR = $argv[2]
+	set PROJECT_NAME = $argv[3]
+	set FILE = `basename $LOCK_FILE`
+
+	setenv PROJECT_ROOT /development/${PROJECT_NAME}
+
+	set USERNAME = `finger $USR | fgrep "In real life" | head -1 | cut -f3 -d:`
+
+	if(-e ${PROJECT_ROOT}/devel/environment/project.cshrc) then
+		source /development/$PROJECT_NAME/devel/environment/project.cshrc
+
+		if ( -e ${adm}/locks/$LOCK_FILE ) then
+			cat ${adm}/locks/$LOCK_FILE
+			echo 45 > /tmp/return_code
+			exit 45
+		else
+			# Create lock file on the remote system.
+			echo $FILE locked on `date '+%a, %d of %h at %r'` by \
+			$USERNAME > ${adm}/locks/$LOCK_FILE
+			echo 35 > /tmp/return_code
+			exit 35
+		endif
+	else
+		echo $PROJECT_NAME is not configured on `hostname`
+		echo 40 > /tmp/return_code
+		exit 40
+	endif
+endif
+
