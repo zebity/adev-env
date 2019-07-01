@@ -1,0 +1,31 @@
+Introduction:
+
+A Development Environment  
+
+This is a development environment that helps to build multi-platorm
+code. It uses a number of conventions to support building against
+mutliple platforms.
+The primary convention is to use different "src & include" files to
+manage platform specific libraries and code and the relie on compiler
+flags to ensure the right version are picked.
+In C / C++ code this avoids using Macros to managed platform variations
+
+The environment is invoked by going into new shell instance, which then
+picks up all the environment variables required to build code
+
+The target build enviornments was orginally C / C++ with additional make files
+to support various special processers such as embedded SQL, Corba etc
+
+The various Makefile includes for differnt target types should prove to have
+ongoing use to people do need to use Make,
+
+I have uplaoded this to allow me to use these, rather than re-read the GNU Make
+file documentation again after all these years.
+
+So this set of files encodes a number of conventions by providing scripts and
+make files to help build your project.
+
+Owner & Author
+
+All these scripts and code where written by John Hartley.
+Owner / Author holds all rights to this code.
